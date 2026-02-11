@@ -1,0 +1,22 @@
+#Vagrant for Server VM
+Vagrant.configure("2") do |config|
+	config.vm.box = "ubuntu/bionic64"
+	config.vm.box_url = ""
+
+	config.vm.define "sfraslinS" do |control|
+		config.vm.hostname = "sfraslinS"
+		control.vm.network = "", ip: "192.168.56.110"
+		control.vm.provider "virtualbox" do |vb|
+			vb.customize ["modifyvm", :id, "--name", "sfraslinS"]
+		end
+	
+	config.vm.provision :shell, :inline => SHELL
+end
+
+#Vagrant for Server Worker VM
+Vagrant.configure("2") do |config|
+	config.bm.box = "ubuntu/bionic64"
+	config.vm.base_address = "192.168.56.111"
+	config.vm.hostname = "sfraslinSW"
+	config.ssh.dsa_authentication = false
+end
