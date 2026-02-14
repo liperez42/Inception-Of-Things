@@ -1,11 +1,12 @@
 #!/bin/sh
 
-TOKEN=$(ssh -o StrictHostKeyChecking=no vagrant@192.168.56.110 "sudo cat /var/lib/rancher/k3s/server/node-token")
-
-apt-get update
+apt-get update && apt-get upgrade
 apt-get install -y curl
 
-curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--flannel-iface eth1" K3S_TOKEN=$TOKEN K3S_URL="https://192.168.56.110:6443" sh -s -
+while [! -f /vagrant/k3s_token]; do
+    sleep 2
+done
 
-sudo systemctl enable k3s-agent 
-sudo systemctl start k3s-agent 
+TOKEN=$(cat /vagrant/k3s_token)
+
+curl -sfL https://get.k3s.io | K3S_TOKEN=$TOKEN K3S_URL="https://192.168.56.110:6443" sh -

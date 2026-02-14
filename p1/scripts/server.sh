@@ -1,8 +1,8 @@
 #!/bin/sh
 
-apt-get update
-apt-get install -y curl 
+apt-get update && apt-get upgrade
+apt-get install -y curl
 
-curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--flannel-iface eth1" K3S_KUBECONFIG_MODE="644" sh -s -
+curl -sfL https://get.k3s.io | sh -
 
-sudo systemctl enable k3s
+sudo cat /var/lib/rancher/k3s/server/node-token > /vagrant/k3s_token
