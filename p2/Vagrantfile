@@ -7,7 +7,6 @@
 # you're doing.
 Vagrant.configure("2") do |config|
 
-  config.vm.synced_folder "./.k3s_token", "/vagrant_shared"
   config.vm.box = "debian/bookworm64"
   config.vm.box_version = "12.20250126.1"
 
@@ -27,34 +26,16 @@ Vagrant.configure("2") do |config|
       export INSTALL_K3S_EXEC="server --write-kubeconfig-mode 644 --advertise-address=192.168.56.110 --node-ip=192.168.56.110"
       curl -sfL https://get.k3s.io | sh -
 
-      while [ ! -f /var/lib/rancher/k3s/server/node-token ]; do
-        sleep 2
-      done
+      sleep 10
 
-      cp /var/lib/rancher/k3s/server/node-token /vagrant_shared/token
+      cp /vagrant/confs/app.yaml /home/vagrant
+      cp /vagrant/confs/service.yaml /home/vagrant
+      cp /vagrant/confs/ingress.yaml /home/vagrant
 
-    SHELL
-  end
+      kubectl apply -f /home/vagrant/app.yaml
+      kubectl apply -f /home/vagrant/service.yaml
+      kubectl apply -f /home/vagrant/ingress.yaml
 
-  config.vm.define "sovincenSW" do |control|
-    control.vm.hostname = "sovincenSW"
-    control.vm.network "private_network", ip: "192.168.56.111"
-    control.vm.provider "virtualbox" do |vb|
-      vb.memory = "512"
-      vb.cpus = 1
-    end
-
-    control.vm.provision "shell", privileged: true, inline: <<-SHELL
-      
-      apt-get update
-      apt-get install -y curl
-
-      while [ ! -f /vagrant_shared/token ]; do
-        sleep 2
-      done
-      
-      export K3S_TOKEN=$(cat /vagrant_shared/token)
-      curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="agent --server https://192.168.56.110:6443 --node-ip=192.168.56.111" sh -
     SHELL
   end
 end
