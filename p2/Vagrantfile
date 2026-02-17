@@ -1,0 +1,17 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "debian/bookworm64"
+
+  config.vm.define "sfraslinS" do |server|
+    server.vm.hostname = "sfraslinS"
+    server.vm.network "private_network", ip: "192.168.56.110"
+    server.vm.provider "virtualbox" do |vb|
+      vb.memory = "4096"
+      vb.cpus = "2"
+    end
+    server.vm.provision "shell", inline: <<-SHELL
+      sudo apt update && sudo apt upgrade -y
+      sudo apt install curl -y
+      curl -sfL https://get.k3s.io | sh -
+    SHELL
+  end
+end
