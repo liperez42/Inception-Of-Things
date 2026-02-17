@@ -1,48 +1,36 @@
-# -*- mode: ruby -*-
-# vi: set ft=ruby :
-
-# All Vagrant configuration is done below. The "2" in Vagrant.configure
-# configures the configuration version (we support older styles for
-# backwards compatibility). Please don't change it unless you know what
-# you're doing.
 Vagrant.configure("2") do |config|
   config.vm.box = "debian/bookworm64"
+  config.vm.synced_folder "./shared", "/vagrant_shared", type: "virtualbox"
 
-  config.vm.define "sfraslinS" do |control|
-		control.vm.hostname = "sfraslinS"
-    # Create a private network, which allows host-only access to the machine
-    # using a specific IP.
-		control.vm.network  :private_network, ip: "192.168.56.110"
-		control.vm.provider "virtualbox" do |vb|
-			vb.customize ["modifyvm", :id, "--name", "sfraslinS"]
-      # Customize the amount of memory on the VM:
-      vb.memory = "2048"
+  config.vm.define "sfraslinS" do |server|
+    server.vm.hostname = "sfraslinS"
+    server.vm.network "private_network", ip: "192.168.56.110"
+    server.vm.provider "virtualbox" do |vb|
+      vb.memory = "4096"
       vb.cpus = "2"
-		end
-    	config.vm.provision "shell", inline: <<-SHELL
-        sudo apt update && sudo apt upgrade -y
-        sudo apt install curl -y
-        curl -sfL https://get.k3s.io | sh -
-        sudo cat /var/lib/rancher/k3s/server/node-token > /vagrant/k3s_token
-      SHELL
+    end
+    server.vm.provision "shell", inline: <<-SHELL
+      sudo apt update && sudo apt upgrade -y
+      sudo apt install curl -y
+      curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --write-kubeconfig-mode 644" sh -
+      sudo mkdir -p /vagrant_shared
+      sudo cat /var/lib/rancher/k3s/server/node-token | sudo tee /vagrant_shared/k3s_token
+    SHELL
   end
 
-
-  config.vm.define "sfraslinSW" do |control|
-		control.vm.hostname = "sfraslinSW"
-		control.vm.network :private_network, ip: "192.168.56.111"
-		control.vm.provider "virtualbox" do |vb|
-			vb.customize ["modifyvm", :id, "--name", "sfraslinSW"]
-      vb.memory = "1024"
+  config.vm.define "sfraslinSW" do |agent|
+    agent.vm.hostname = "sfraslinSW"
+    agent.vm.network "private_network", ip: "192.168.56.111"
+    agent.vm.provider "virtualbox" do |vb|
+      vb.memory = "2048"
       vb.cpus = "1"
-		end
-    	config.vm.provision "shell", inline: <<-SHELL
-        sudo apt update && sudo apt upgrade -y
-        sudo apt install curl -y
-        # Wait for shared file to be created by server VM
-        while [! -f /vagrant/k3s_token]; do sleep 2; done
-        TOKEN=$(cat /vagrant/k3s_token)
-        curl -sfL https://get.k3s.io | K3S_URL=https://192.168.56.110:6443 K3S_TOKEN=$TOKEN sh -
-      SHELL
+    end
+    agent.vm.provision "shell", inline: <<-SHELL
+      sudo apt update && sudo apt upgrade -y
+      sudo apt install curl -y
+      while [ ! -f /vagrant_shared/k3s_token ]; do sleep 2; done
+      TOKEN=$(cat /vagrant_shared/k3s_token)
+      curl -sfL https://get.k3s.io | K3S_URL=https://192.168.56.110:6443 K3S_TOKEN=$TOKEN sh -
+    SHELL
   end
 end
