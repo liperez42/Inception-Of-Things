@@ -1,41 +1,46 @@
 #!/bin/bash
 
-# ----- Clean Start ----- #
+RED='\033[31m'
+GREEN='\033[32m'
+NC='\033[0m' # No Color
 
-echo "Démarrage du nettoyage des installations précédentes..."
+# ----- Clean Start -----
+echo "------------ Cleaning previous installations ------------"
 
-echo "Suppression de Docker et de ses dépendances..."
+#Delete ArgoCD
+echo -e "Deleting ArgoCD..."
+sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+sudo k3d cluster delete IOT-cluster
+
+# Delete Kube config file
+echo -e "Deleting Kube config files..."
+sudo rm -rf ~/.kube/config
+sudo rm -rf /etc/kubernetes
+
+# Delete Kubernetes namespaces
+echo -e "Deleting Kubernetes namespaces..."
+sudo kubectl delete namespace argocd dev --ignore-not-found
+
+# Uninstall K3D
+echo -e "Uninstall K3D..."
+sudo curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash -s --uninstall
+
+# Removing Docker
+echo -e "Deleting Docker..."
 sudo systemctl stop docker
 sudo dpkg --configure -a
 sudo apt remove --purge -y docker-ce docker-ce-cli containerd.io
 sudo rm -rf /var/lib/docker
 sudo rm -rf /var/lib/containerd
 
-echo "Suppression des clusters K3D..."
-sudo k3d cluster list --no-headers | awk '{print $1}' | xargs -I {} sudo k3d cluster delete {}
-
-echo "Suppression des namespaces Kubernetes..."
-sudo kubectl delete namespace argocd dev --ignore-not-found
-
-echo "Suppression des fichiers de configuration Kube..."
-sudo rm -rf ~/.kube/config
-sudo rm -rf /etc/kubernetes
-
-echo "Suppression des ressources ArgoCD..."
-sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-
-echo "Suppression de K3D..."
-sudo curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash -s --uninstall
-
-echo "Nettoyage des fichiers temporaires..."
+# Apt clean
+echo -e "Cleaning apt..."
 sudo apt autoremove -y
 sudo apt clean
 
-sudo k3d cluster delete IOT-cluster
+echo -e "${GREEN}------------ Cleaning Done ------------${NC}"
 
-echo "Nettoyage terminé."
-echo "------------ Nettoyage terminé ------------"
-
+# ----- Instalations -----
 #Install Docker
 sudo apt update
 sudo apt install -y ca-certificates curl gnupg
@@ -46,7 +51,7 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.
 sudo apt update
 echo "apres update"
 sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-echo "Docker installation succeeded !"
+echo -e "${GREEN}Docker installation succeeded !${NC}"
 
 #Start Docker
 echo "Starting docker..."
@@ -63,6 +68,7 @@ echo "Installing kubectl..."
 sudo curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
+# ----- Create and config K3D cluster -----
 #Create cluster
 echo "Creating cluster..."
 sudo k3d cluster create IOT-cluster --port "8888:8888@loadbalancer" --wait
@@ -80,7 +86,7 @@ chmod 600 ~/.kube/config
 
 #Install ArgoCD in the namespaces (server-side)
 sudo kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-echo "Argocd installation succeeded !"
+echo -e "${GREEN}Argocd installation succeeded !${NC}"
 
 #wait pods Argo CD
 echo "Waiting for the pods to be ready..."
