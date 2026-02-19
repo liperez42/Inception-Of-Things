@@ -87,6 +87,30 @@ mkdir -p ~/.kube
 k3d kubeconfig get IOT-cluster > ~/.kube/config
 chmod 600 ~/.kube/config
 
+#Install Helm
+sudo apt-get install curl gpg apt-transport-https --yes
+curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+sudo apt-get update
+sudo apt-get install helm
+
+#Helm repository
+helm repo add gitlab https://charts.gitlab.io/
+helm repo update
+helm search repo gitlab 
+
+#Gitlab namespaces
+kubectl create namespace gitlab 
+
+#Install Gitlab instance
+helm install gitlab gitlab/gitlab \
+  --namespace gitlab \
+  --set global.hosts.domain=gitlab.local \
+  --set certmanager.install=false \
+  --set global.ingress.configureCertmanager=false
+
+kubectl wait --for=condition=available deployment/gitlab-webservice-default -n gitlab --timeout=600s
+
 #Install ArgoCD in the namespaces (server-side)
 sudo kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 echo "Argocd installation succeeded !"
