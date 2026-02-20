@@ -7,12 +7,13 @@ NC='\033[0m' # No Color
 # ----- Clean Start -----
 echo "------------ Cleaning previous installations ------------"
 
-#Delete ArgoCD
+# Delete ArgoCD
 echo -e "Deleting ArgoCD..."
 sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 sudo k3d cluster delete IOT-cluster
 
-echo -e "Deleting ..."
+# Uninstall gitlab
+echo -e "Uninstall gitlab..."
 helm uninstall gitlab --namespace gitlab
 
 # Delete Kube config file
