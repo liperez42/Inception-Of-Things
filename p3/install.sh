@@ -4,25 +4,36 @@
 
 echo "Cleaning previous installations..."
 
-# 1. Docker
 echo "Deleting Docker and depedancies..."
-sudo systemctl stop docker 2>/dev/null
+sudo systemctl stop docker
 sudo dpkg --configure -a
 sudo apt remove --purge -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo rm -rf /var/lib/docker
 sudo rm -rf /var/lib/containerd
 
-# 2. K3D
 echo "Deleting K3D clusters..."
-k3d cluster delete --all 2>/dev/null
+sudo k3d cluster list --no-headers | awk '{print $1}' | xargs -I {} sudo k3d cluster delete {}
 
-# 3. Kubernetes
+echo "Deleting Kubernetes namespaces..."
+sudo kubectl delete namespace argocd dev --ignore-not-found
+
 echo "Deleting Kubernetes configuration files..."
-rm -rf ~/.kube/config
+sudo rm -rf ~/.kube/config
+sudo rm -rf /etc/kubernetes
+
+echo "Deleting ArgoCD ressources..."
+sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+echo "Deleting  K3D..."
+sudo curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash -s --uninstall
+
+echo "Nettoyage temp files..."
+sudo apt autoremove -y
+sudo apt clean
+
+sudo k3d cluster delete IOT-cluster
 
 echo "------------ Cleaning done ------------"
-
-#!/bin/bash
 
 #Install Docker
 sudo apt update
