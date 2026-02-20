@@ -7,10 +7,14 @@ NC='\033[0m' # No Color
 # ----- Clean Start -----
 echo "------------ Cleaning previous installations ------------"
 
-#Delete ArgoCD
+# Delete ArgoCD
 echo -e "Deleting ArgoCD..."
 sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 sudo k3d cluster delete IOT-cluster
+
+# Uninstall gitlab
+echo -e "Uninstall gitlab..."
+helm uninstall gitlab --namespace gitlab
 
 # Delete Kube config file
 echo -e "Deleting Kube config files..."
@@ -19,7 +23,13 @@ sudo rm -rf /etc/kubernetes
 
 # Delete Kubernetes namespaces
 echo -e "Deleting Kubernetes namespaces..."
-sudo kubectl delete namespace argocd dev --ignore-not-found
+sudo kubectl delete namespace argocd dev gitlab --ignore-not-found
+
+# Uninstall Helm
+echo -e "Uninstall Helm..."
+sudo apt-get remove --purge helm -y
+sudo rm -f /usr/share/keyrings/helm.gpg
+sudo rm -f /etc/apt/sources.list.d/helm-stable-debian.list
 
 # Uninstall K3D
 echo -e "Uninstall K3D..."
@@ -45,8 +55,8 @@ echo -e "${GREEN}------------ Cleaning Done ------------${NC}"
 #Install Docker
 sudo apt update
 sudo apt install -y ca-certificates curl gnupg
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg -y
+sudo install -m 0755 -d /etc/apt/keyrings -y
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt update
@@ -73,21 +83,29 @@ sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
 #Create cluster
 echo "Creating cluster..."
-sudo k3d cluster create IOT-cluster --port "8888:8888@loadbalancer" --wait
+k3d cluster create IOT-cluster\
+  --agents 2 \
+  --servers 1 \
+  --wait
 sleep 10
 
-#Create namespaces
-echo "Creating namespaces..."
-sudo kubectl create namespace argocd
-sudo kubectl create namespace dev
-
 #k3d config
-rm -rf ~/.kube/config
 mkdir -p ~/.kube
 k3d kubeconfig get IOT-cluster > ~/.kube/config
 chmod 600 ~/.kube/config
+export KUBECONFIG=~/.kube/config
+kubectl cluster-info
+
+kubectl cluster-info
+
+#Create namespaces
+echo "Creating namespaces..."
+kubectl create namespace argocd
+kubectl create namespace dev
+kubectl create namespace gitlab 
 
 #Install Helm
+echo "Installing Helm..."
 sudo apt-get install curl gpg apt-transport-https --yes
 curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
 echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
@@ -95,21 +113,26 @@ sudo apt-get update
 sudo apt-get install helm
 
 #Helm repository
+echo "adding repo"
 helm repo add gitlab https://charts.gitlab.io/
 helm repo update
 helm search repo gitlab 
 
-#Gitlab namespaces
-kubectl create namespace gitlab 
-
-#Install Gitlab instance
-helm install gitlab gitlab/gitlab \
+helm upgrade --install gitlab gitlab/gitlab \
   --namespace gitlab \
+  --create-namespace \
   --set global.hosts.domain=gitlab.local \
-  --set certmanager.install=false \
-  --set global.ingress.configureCertmanager=false
+  --set global.ingress.tls.enabled=false \
+  --set global.ingress.configureCertmanager=false \
+  --set prometheus.install=false \
+  --set global.minio.enabled=false \
+  --set gitlab-runner.install=false \
+  --set global.appConfig.object_store.enabled=false \
+  --set registry.enabled=false \
+  --set gitlab.toolbox.backups.objectStorage.enabled=false
 
-kubectl wait --for=condition=available deployment/gitlab-webservice-default -n gitlab --timeout=600s
+echo "Waiting for the pods to be ready..."
+kubectl wait --for=condition=Ready pods -n gitlab --all --timeout=1200s
 
 #Install ArgoCD in the namespaces (server-side)
 sudo kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
