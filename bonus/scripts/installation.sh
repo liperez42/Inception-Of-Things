@@ -58,8 +58,8 @@ echo -e "${GREEN}------------ Cleaning Done ------------${NC}"
 sudo apt update
 sudo apt install -y ca-certificates curl gnupg
 sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg -y
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg -y
+chmod a+r /etc/apt/keyrings/docker.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt update
 echo "apres update"
@@ -74,11 +74,11 @@ sudo systemctl status docker --no-pager
 
 #Install k3d
 echo "Installing k3d..."
-sudo curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
 #Install  kubectl
 echo "Installing kubectl..."
-sudo curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
 kubectl config set-cluster k3d-IOT-cluster --insecure-skip-tls-verify=true --server=https://0.0.0.0:6443
@@ -87,14 +87,14 @@ kubectl config set-cluster k3d-IOT-cluster --insecure-skip-tls-verify=true --ser
 
 #Create cluster
 echo "Creating cluster..."
-sudo k3d cluster create IOT-cluster --port "8888:8888@loadbalancer" --wait
+k3d cluster create IOT-cluster --port "8888:8888@loadbalancer" --wait
 sleep 10
 
 #Create namespaces
 echo "Creating namespaces..."
-sudo kubectl create namespace argocd
-sudo kubectl create namespace dev
-sudo kubectl create namespace gitlab 
+kubectl create namespace argocd
+kubectl create namespace dev
+kubectl create namespace gitlab 
 
 #k3d config
 rm -rf ~/.kube/config
@@ -119,18 +119,18 @@ helm install gitlab gitlab/gitlab -f confs/gitlab-values.yaml --namespace gitlab
 
 kubectl apply -f /home/sfraslin/Documents/IoT/bonus/confs/ingress.yaml -n gitlab
 
-kubectl wait --for=condition=available deployment/gitlab-webservice-default -n gitlab --timeout=600s
+kubectl wait --for=condition=Ready pods --all -n gitlab --timeout=600s
 
 #Install ArgoCD in the namespaces (server-side)
-sudo kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 echo "Argocd installation succeeded !"
 
 #wait pods Argo CD
 echo "Waiting for the pods to be ready..."
-sudo kubectl wait --for=condition=Ready pods -n argocd --all --timeout=300s
+kubectl wait --for=condition=Ready pods -n argocd --all --timeout=300s
 
 #Apply application
-sudo kubectl apply -f /home/sfraslin/Documents/IoT/bonus/confs/application.yaml -n argocd
+kubectl apply -f /home/sfraslin/Documents/IoT/bonus/confs/application.yaml -n argocd
 
 xdg-open http://localhost:8080 & xdg-open http://gitlab.local &
 
@@ -140,4 +140,4 @@ echo -e "${GREEN}>>>>>> ArgoCD admin password: $ARGO_PSW <<<<<<${NC}"
 
 #Connect to argocd via port 8080
 echo "Starting the server connection..."
-sudo kubectl port-forward svc/argocd-server -n argocd 8080:443
+kubectl port-forward svc/argocd-server -n argocd 8081:443 2>/dev/null
