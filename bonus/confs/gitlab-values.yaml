@@ -1,0 +1,70 @@
+global:
+  hosts:
+    domain: gitlab.local
+    https: false
+    externalIP: 127.0.0.1
+  edition: ce
+  ingress:
+    class: traefik
+    configureCertmanager: false
+
+  postgresql:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+
+  redis:
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+nginx-ingress:
+  enabled: false
+
+gitlab-runner:
+  install: false
+
+prometheus:
+  install: false
+grafana:
+  enabled: false
+registry:
+  enabled: false
+
+gitlab:
+
+  sidekiq:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+
+  webservice:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+
+  migrations:
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits: 
+        cpu: 2000m
+        memory: 2Gi
+

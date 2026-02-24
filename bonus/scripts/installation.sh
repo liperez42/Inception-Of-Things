@@ -50,6 +50,8 @@ sudo apt clean
 
 echo -e "${GREEN}------------ Cleaning Done ------------${NC}"
 
+# exit
+
 # ----- Instalations -----
 
 #Install Docker
@@ -107,21 +109,15 @@ echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.co
 sudo apt-get update
 sudo apt-get install helm
 
-#Helm repository
+#Helm gitlab repository
 helm repo add gitlab https://charts.gitlab.io/
 helm repo update
 helm search repo gitlab 
 
-echo -e "${RED} REGARDER ICI ${NC}"
-kubectl get namespaces
-
 #Install Gitlab instance
-helm upgrade --install gitlab gitlab/gitlab \
-  --namespace gitlab \
-  --set global.hosts.domain=gitlab.local \
-  --set certmanager-issuer.email= \
-  --set global.ingress.configureCertmanager=false \
-  --set global.ingress.tls.enabled=false
+helm install gitlab gitlab/gitlab -f confs/gitlab-values.yaml --namespace gitlab
+
+kubectl apply -f /home/sfraslin/Documents/IoT/bonus/confs/ingress.yaml -n gitlab
 
 kubectl wait --for=condition=available deployment/gitlab-webservice-default -n gitlab --timeout=600s
 
@@ -134,12 +130,14 @@ echo "Waiting for the pods to be ready..."
 sudo kubectl wait --for=condition=Ready pods -n argocd --all --timeout=300s
 
 #Apply application
-sudo kubectl apply -f /home/sfraslin/Documents/IoT/bonus/confs -n argocd
+sudo kubectl apply -f /home/sfraslin/Documents/IoT/bonus/confs/application.yaml -n argocd
+
+xdg-open http://localhost:8080 & xdg-open http://gitlab.local &
+
+#Get admin password
+ARGO_PSW=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+echo -e "${GREEN}>>>>>> ArgoCD admin password: $ARGO_PSW <<<<<<${NC}"
 
 #Connect to argocd via port 8080
 echo "Starting the server connection..."
 sudo kubectl port-forward svc/argocd-server -n argocd 8080:443
-
-
-#Get admin password
-#kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
