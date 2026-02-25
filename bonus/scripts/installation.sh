@@ -9,7 +9,7 @@ echo "------------ Cleaning previous installations ------------"
 
 # Delete ArgoCD
 echo -e "Deleting ArgoCD..."
-sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --ignore-not-found 2>/dev/null || true
 sudo k3d cluster delete IOT-cluster
 
 # Uninstall gitlab
@@ -23,7 +23,7 @@ sudo rm -rf /etc/kubernetes
 
 # Delete Kubernetes namespaces
 echo -e "Deleting Kubernetes namespaces..."
-sudo kubectl delete namespace argocd dev gitlab --ignore-not-found
+kubectl delete namespace argocd dev gitlab --ignore-not-found
 
 # Uninstall Helm
 echo -e "Uninstall Helm..."
@@ -70,7 +70,15 @@ echo "Docker installation succeeded !"
 echo "Starting docker..."
 sudo systemctl enable docker
 sudo systemctl start docker
-sudo systemctl status docker --no-pager
+
+sudo tee /etc/docker/daemon.json > /dev/null <<EOF
+{
+  "default-address-pools": [
+    {"base": "10.0.0.0/8", "size": 24}
+  ]
+}
+EOF
+sudo systemctl restart docker
 
 #Install k3d
 echo "Installing k3d..."
@@ -81,8 +89,6 @@ echo "Installing kubectl..."
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
-kubectl config set-cluster k3d-IOT-cluster --insecure-skip-tls-verify=true --server=https://0.0.0.0:6443
-
 # ----- Create and config K3D cluster -----
 
 #Create cluster
@@ -90,17 +96,19 @@ echo "Creating cluster..."
 k3d cluster create IOT-cluster --port "8888:8888@loadbalancer" --wait
 sleep 10
 
-#Create namespaces
-echo "Creating namespaces..."
-kubectl create namespace argocd
-kubectl create namespace dev
-kubectl create namespace gitlab 
-
 #k3d config
 rm -rf ~/.kube/config
 mkdir -p ~/.kube
 k3d kubeconfig get IOT-cluster > ~/.kube/config
 chmod 600 ~/.kube/config
+
+kubectl config set-cluster k3d-IOT-cluster --insecure-skip-tls-verify=true
+
+#Create namespaces
+echo "Creating namespaces..."
+kubectl create namespace argocd
+kubectl create namespace dev
+kubectl create namespace gitlab 
 
 #Install Helm
 sudo apt-get install curl gpg apt-transport-https --yes
@@ -117,7 +125,7 @@ helm search repo gitlab
 #Install Gitlab instance
 helm install gitlab gitlab/gitlab -f confs/gitlab-values.yaml --namespace gitlab
 
-kubectl apply -f /home/sfraslin/Documents/IoT/bonus/confs/ingress.yaml -n gitlab
+kubectl apply -f confs/ingress.yaml -n gitlab
 
 kubectl wait --for=condition=Ready pods --all -n gitlab --timeout=600s
 
@@ -130,7 +138,7 @@ echo "Waiting for the pods to be ready..."
 kubectl wait --for=condition=Ready pods -n argocd --all --timeout=300s
 
 #Apply application
-kubectl apply -f /home/sfraslin/Documents/IoT/bonus/confs/application.yaml -n argocd
+kubectl apply -f confs/application.yaml -n argocd
 
 xdg-open http://localhost:8080 & xdg-open http://gitlab.local &
 

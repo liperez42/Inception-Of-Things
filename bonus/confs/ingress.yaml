@@ -8,15 +8,13 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-  - host: gitlab.local
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: gitlab-webservice-default
-            port:
-              number: 8181
-
-
+    - host: gitlab.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gitlab-webservice-default
+                port:
+                  number: 8181
