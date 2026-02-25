@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: http://localhost/gitlab/root/sfraslin.git
+    repoURL: http://gitlab.local/root/sfraslin.git
     targetRevision: HEAD
     path: .
   destination:

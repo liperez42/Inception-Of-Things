@@ -87,7 +87,7 @@ kubectl config set-cluster k3d-IOT-cluster --insecure-skip-tls-verify=true --ser
 
 #Create cluster
 echo "Creating cluster..."
-k3d cluster create IOT-cluster --port "8888:8888@loadbalancer" --wait
+k3d cluster create IOT-cluster --port "80:80@loadbalancer" --port "8888:8888@loadbalancer" --wait
 sleep 10
 
 #Create namespaces
@@ -117,7 +117,7 @@ helm search repo gitlab
 #Install Gitlab instance
 helm install gitlab gitlab/gitlab -f confs/gitlab-values.yaml --namespace gitlab
 
-kubectl apply -f /home/sfraslin/Documents/IoT/bonus/confs/ingress.yaml -n gitlab
+kubectl apply -f /home/sovincen/iot/bonus/confs/ingress.yaml -n gitlab
 
 kubectl wait --for=condition=Ready pods --all -n gitlab --timeout=600s
 
@@ -130,7 +130,7 @@ echo "Waiting for the pods to be ready..."
 kubectl wait --for=condition=Ready pods -n argocd --all --timeout=300s
 
 #Apply application
-kubectl apply -f /home/sfraslin/Documents/IoT/bonus/confs/application.yaml -n argocd
+kubectl apply -f /home/sovincen/iot/bonus/confs/application.yaml -n argocd
 
 xdg-open http://localhost:8080 & xdg-open http://gitlab.local &
 
@@ -140,4 +140,4 @@ echo -e "${GREEN}>>>>>> ArgoCD admin password: $ARGO_PSW <<<<<<${NC}"
 
 #Connect to argocd via port 8080
 echo "Starting the server connection..."
-kubectl port-forward svc/argocd-server -n argocd 8081:443 2>/dev/null
+kubectl port-forward svc/argocd-server -n argocd 8080:443 2>/dev/null
