@@ -9,17 +9,27 @@ echo "------------ Cleaning previous installations ------------"
 
 # Delete ArgoCD
 echo -e "Deleting ArgoCD..."
-sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-sudo k3d cluster delete IOT-cluster
+if kubectl get ns argocd &> /dev/null; then
+  sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+fi
+if k3d cluster list | grep -q "IOT-cluster"; then
+  sudo k3d cluster delete IOT-cluster
+fi
 
 # Uninstall gitlab
 echo -e "Uninstall gitlab..."
-helm uninstall gitlab --namespace gitlab
+if helm list -n gitlab &> /dev/null; then
+  helm uninstall gitlab --namespace gitlab
+fi
 
 # Delete Kube config file
 echo -e "Deleting Kube config files..."
-sudo rm -rf ~/.kube/config
-sudo rm -rf /etc/kubernetes
+if [ -f ~/.kube/config ]; then
+  sudo rm -rf ~/.kube/config
+fi
+if [ -f /etc/kubernetes ]; then
+  sudo rm -rf /etc/kubernetes
+fi
 
 # Delete Kubernetes namespaces
 echo -e "Deleting Kubernetes namespaces..."
@@ -27,21 +37,27 @@ sudo kubectl delete namespace argocd dev gitlab --ignore-not-found
 
 # Uninstall Helm
 echo -e "Uninstall Helm..."
-sudo apt-get remove --purge helm -y
-sudo rm -f /usr/share/keyrings/helm.gpg
-sudo rm -f /etc/apt/sources.list.d/helm-stable-debian.list
+if command -v helm &> /dev/null; then
+  sudo apt-get remove --purge helm -y
+  sudo rm -f /usr/share/keyrings/helm.gpg
+  sudo rm -f /etc/apt/sources.list.d/helm-stable-debian.list
+fi
 
 # Uninstall K3D
 echo -e "Uninstall K3D..."
-sudo curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash -s --uninstall
+if command -v k3d &> /dev/null; then
+  sudo curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash -s --uninstall
+fi
 
 # Removing Docker
 echo -e "Deleting Docker..."
-sudo systemctl stop docker
-sudo dpkg --configure -a
-sudo apt remove --purge -y docker-ce docker-ce-cli containerd.io
-sudo rm -rf /var/lib/docker
-sudo rm -rf /var/lib/containerd
+if command -v docker &> /dev/null; then
+  sudo systemctl stop docker
+  sudo dpkg --configure -a
+  sudo apt remove --purge -y docker-ce docker-ce-cli containerd.io
+  sudo rm -rf /var/lib/docker
+  sudo rm -rf /var/lib/containerd
+fi
 
 # Apt clean
 echo -e "Cleaning apt..."
