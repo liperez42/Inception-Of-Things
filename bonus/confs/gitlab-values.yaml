@@ -1,0 +1,71 @@
+global:
+  hosts:
+    domain: localhost
+    https: false
+    gitlab:
+      name: localhost
+  ingress:
+    enabled: false
+    configureCertmanager: false
+    tls:
+      enabled: false
+  minio:
+    enabled: true
+  kas:
+    enabled: false
+
+postgresql:
+  install: true
+  persistence:
+    enabled: false
+redis:
+  install: true
+prometheus:
+  install: false
+gitlab-runner:
+  install: false
+registry:
+  enabled: false
+certmanager:
+  enabled: false
+nginx-ingress:
+  enabled: false
+
+gitlab:
+  webservice:
+    replicas: 1
+    workerProcesses: 1
+    resources:
+      limits:
+        memory: "3Gi"
+        cpu: "1500m"
+      requests:
+        memory: "2500Mi"
+        cpu: "100m"
+  sidekiq:
+    replicas: 1
+    concurrency: 5
+    resources:
+      limits:
+        memory: "2.5Gi"
+        cpu: "1000m"
+      requests:
+        memory: "2Gi"
+        cpu: "50m"
+  gitlab-shell:
+    replicas: 1
+    resources:
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+      requests:
+        memory: "64Mi"
+        cpu: "10m"
+  gitaly:
+    resources:
+      limits:
+        memory: "1.5Gi"
+        cpu: "500m"
+      requests:
+        memory: "400Mi"
+        cpu: "50m"

@@ -9,17 +9,27 @@ echo "------------ Cleaning previous installations ------------"
 
 # Delete ArgoCD
 echo -e "Deleting ArgoCD..."
-sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-sudo k3d cluster delete IOT-cluster
+if kubectl get ns argocd &> /dev/null; then
+  sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+fi
+if k3d cluster list | grep -q "IOT-cluster"; then
+  sudo k3d cluster delete IOT-cluster
+fi
 
 # Uninstall gitlab
 echo -e "Uninstall gitlab..."
-helm uninstall gitlab --namespace gitlab
+if helm list -n gitlab &> /dev/null; then
+  helm uninstall gitlab --namespace gitlab
+fi
 
 # Delete Kube config file
 echo -e "Deleting Kube config files..."
-sudo rm -rf ~/.kube/config
-sudo rm -rf /etc/kubernetes
+if [ -f ~/.kube/config ]; then
+  sudo rm -rf ~/.kube/config
+fi
+if [ -f /etc/kubernetes ]; then
+  sudo rm -rf /etc/kubernetes
+fi
 
 # Delete Kubernetes namespaces
 echo -e "Deleting Kubernetes namespaces..."
@@ -37,11 +47,13 @@ sudo curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
 # Removing Docker
 echo -e "Deleting Docker..."
-sudo systemctl stop docker
-sudo dpkg --configure -a
-sudo apt remove --purge -y docker-ce docker-ce-cli containerd.io
-sudo rm -rf /var/lib/docker
-sudo rm -rf /var/lib/containerd
+if command -v helm &> /dev/null; then
+  sudo systemctl stop docker
+  sudo dpkg --configure -a
+  sudo apt remove --purge -y docker-ce docker-ce-cli containerd.io
+  sudo rm -rf /var/lib/docker
+  sudo rm -rf /var/lib/containerd
+fi
 
 # Apt clean
 echo -e "Cleaning apt..."
@@ -50,14 +62,16 @@ sudo apt clean
 
 echo -e "${GREEN}------------ Cleaning Done ------------${NC}"
 
+# exit
+
 # ----- Instalations -----
 
 #Install Docker
 sudo apt update
 sudo apt install -y ca-certificates curl gnupg
-sudo install -m 0755 -d /etc/apt/keyrings -y
-sudo curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt update
 echo "apres update"
@@ -72,31 +86,21 @@ sudo systemctl status docker --no-pager
 
 #Install k3d
 echo "Installing k3d..."
-sudo curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
 #Install  kubectl
 echo "Installing kubectl..."
-sudo curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+
+kubectl config set-cluster k3d-IOT-cluster --insecure-skip-tls-verify=true --server=https://0.0.0.0:6443
 
 # ----- Create and config K3D cluster -----
 
 #Create cluster
 echo "Creating cluster..."
-k3d cluster create IOT-cluster\
-  --agents 2 \
-  --servers 1 \
-  --wait
+k3d cluster create IOT-cluster --port "80:80@loadbalancer" --port "8888:8888@loadbalancer" --wait
 sleep 10
-
-#k3d config
-mkdir -p ~/.kube
-k3d kubeconfig get IOT-cluster > ~/.kube/config
-chmod 600 ~/.kube/config
-export KUBECONFIG=~/.kube/config
-kubectl cluster-info
-
-kubectl cluster-info
 
 #Create namespaces
 echo "Creating namespaces..."
@@ -104,51 +108,48 @@ kubectl create namespace argocd
 kubectl create namespace dev
 kubectl create namespace gitlab 
 
+#k3d config
+rm -rf ~/.kube/config
+mkdir -p ~/.kube
+k3d kubeconfig get IOT-cluster > ~/.kube/config
+chmod 600 ~/.kube/config
+
 #Install Helm
-echo "Installing Helm..."
 sudo apt-get install curl gpg apt-transport-https --yes
 curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
 echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
 sudo apt-get update
 sudo apt-get install helm
 
-#Helm repository
-echo "adding repo"
+#Helm gitlab repository
 helm repo add gitlab https://charts.gitlab.io/
 helm repo update
 helm search repo gitlab 
 
-helm upgrade --install gitlab gitlab/gitlab \
-  --namespace gitlab \
-  --create-namespace \
-  --set global.hosts.domain=gitlab.local \
-  --set global.ingress.tls.enabled=false \
-  --set global.ingress.configureCertmanager=false \
-  --set prometheus.install=false \
-  --set global.minio.enabled=false \
-  --set gitlab-runner.install=false \
-  --set global.appConfig.object_store.enabled=false \
-  --set registry.enabled=false \
-  --set gitlab.toolbox.backups.objectStorage.enabled=false
+#Install Gitlab instance
+helm install gitlab gitlab/gitlab -f confs/gitlab-values.yaml --namespace gitlab
 
-echo "Waiting for the pods to be ready..."
-kubectl wait --for=condition=Ready pods -n gitlab --all --timeout=1200s
+kubectl wait --for=condition=Ready pods --all -n gitlab --timeout=300s
 
 #Install ArgoCD in the namespaces (server-side)
-sudo kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 echo "Argocd installation succeeded !"
 
 #wait pods Argo CD
 echo "Waiting for the pods to be ready..."
-sudo kubectl wait --for=condition=Ready pods -n argocd --all --timeout=300s
+kubectl wait --for=condition=Ready pods -n argocd --all --timeout=300s
 
 #Apply application
-sudo kubectl apply -f ../confs/application.yaml -n argocd
+kubectl apply -f /home/sovincen/iot/bonus/confs/application.yaml -n argocd
+
+xdg-open http://localhost:8080 & xdg-open http://gitlab.local &
+
+#Get admin password
+ARGO_PSW=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+echo -e "${GREEN}>>>>>> ArgoCD admin password: $ARGO_PSW <<<<<<${NC}"
 
 #Connect to argocd via port 8080
 echo "Starting the server connection..."
-sudo kubectl port-forward svc/argocd-server -n argocd 8080:443
+kubectl port-forward svc/argocd-server -n argocd 8080:443 2>/dev/null &
 
-
-#Get admin password
-#kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+sudo kubectl port-forward -n gitlab svc/gitlab-webservice-default 80:8181 &
