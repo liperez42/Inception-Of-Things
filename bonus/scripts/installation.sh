@@ -9,17 +9,27 @@ echo "------------ Cleaning previous installations ------------"
 
 # Delete ArgoCD
 echo -e "Deleting ArgoCD..."
-sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-sudo k3d cluster delete IOT-cluster
+if kubectl get ns argocd &> /dev/null; then
+  sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+fi
+if k3d cluster list | grep -q "IOT-cluster"; then
+  sudo k3d cluster delete IOT-cluster
+fi
 
 # Uninstall gitlab
 echo -e "Uninstall gitlab..."
-helm uninstall gitlab --namespace gitlab
+if helm list -n gitlab &> /dev/null; then
+  helm uninstall gitlab --namespace gitlab
+fi
 
 # Delete Kube config file
 echo -e "Deleting Kube config files..."
-sudo rm -rf ~/.kube/config
-sudo rm -rf /etc/kubernetes
+if [ -f ~/.kube/config ]; then
+  sudo rm -rf ~/.kube/config
+fi
+if [ -f /etc/kubernetes ]; then
+  sudo rm -rf /etc/kubernetes
+fi
 
 # Delete Kubernetes namespaces
 echo -e "Deleting Kubernetes namespaces..."
@@ -37,11 +47,13 @@ sudo curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
 # Removing Docker
 echo -e "Deleting Docker..."
-sudo systemctl stop docker
-sudo dpkg --configure -a
-sudo apt remove --purge -y docker-ce docker-ce-cli containerd.io
-sudo rm -rf /var/lib/docker
-sudo rm -rf /var/lib/containerd
+if command -v helm &> /dev/null; then
+  sudo systemctl stop docker
+  sudo dpkg --configure -a
+  sudo apt remove --purge -y docker-ce docker-ce-cli containerd.io
+  sudo rm -rf /var/lib/docker
+  sudo rm -rf /var/lib/containerd
+fi
 
 # Apt clean
 echo -e "Cleaning apt..."
@@ -58,7 +70,7 @@ echo -e "${GREEN}------------ Cleaning Done ------------${NC}"
 sudo apt update
 sudo apt install -y ca-certificates curl gnupg
 sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg -y
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 chmod a+r /etc/apt/keyrings/docker.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt update
@@ -140,4 +152,6 @@ echo -e "${GREEN}>>>>>> ArgoCD admin password: $ARGO_PSW <<<<<<${NC}"
 
 #Connect to argocd via port 8080
 echo "Starting the server connection..."
-kubectl port-forward svc/argocd-server -n argocd 8080:443 2>/dev/null
+kubectl port-forward svc/argocd-server -n argocd 8080:443 2>/dev/null &
+
+sudo kubectl port-forward -n gitlab svc/gitlab-webservice-default 80:8181 &
