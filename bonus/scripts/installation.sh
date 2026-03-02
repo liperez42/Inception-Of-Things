@@ -22,15 +22,6 @@ if helm list -n gitlab &> /dev/null; then
   helm uninstall gitlab --namespace gitlab
 fi
 
-# Delete Kube config file
-echo -e "Deleting Kube config files..."
-if [ -f ~/.kube/config ]; then
-  sudo rm -rf ~/.kube/config
-fi
-if [ -f /etc/kubernetes ]; then
-  sudo rm -rf /etc/kubernetes
-fi
-
 # Delete Kubernetes namespaces
 echo -e "Deleting Kubernetes namespaces..."
 sudo kubectl delete namespace argocd dev gitlab --ignore-not-found
@@ -99,7 +90,7 @@ kubectl config set-cluster k3d-IOT-cluster --insecure-skip-tls-verify=true --ser
 
 #Create cluster
 echo "Creating cluster..."
-k3d cluster create IOT-cluster --port "80:80@loadbalancer" --port "8888:8888@loadbalancer" --wait
+k3d cluster create IOT-cluster --port "8888:8888@loadbalancer" --wait
 sleep 10
 
 #Create namespaces
@@ -129,27 +120,10 @@ helm search repo gitlab
 #Install Gitlab instance
 helm install gitlab gitlab/gitlab -f confs/gitlab-values.yaml --namespace gitlab
 
-kubectl wait --for=condition=Ready pods --all -n gitlab --timeout=300s
+kubectl wait --for=condition=Ready pods -n gitlab --all --timeout=300s 
 
-#Install ArgoCD in the namespaces (server-side)
-kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-echo "Argocd installation succeeded !"
-
-#wait pods Argo CD
-echo "Waiting for the pods to be ready..."
-kubectl wait --for=condition=Ready pods -n argocd --all --timeout=300s
-
-#Apply application
-kubectl apply -f /home/sovincen/iot/bonus/confs/application.yaml -n argocd
-
-xdg-open http://localhost:8080 & xdg-open http://gitlab.local &
-
-#Get admin password
-ARGO_PSW=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
-echo -e "${GREEN}>>>>>> ArgoCD admin password: $ARGO_PSW <<<<<<${NC}"
-
-#Connect to argocd via port 8080
-echo "Starting the server connection..."
-kubectl port-forward svc/argocd-server -n argocd 8080:443 2>/dev/null &
+#Get gitlab password
+GITLAB_PSW=$(kubectl -n gitlab get secret gitlab-gitlab-initial-root-password -o jsonpath="{.data.password}" | base64 -d)
+echo -e "${GREEN}>>>>>> Gitlab root password: $GITLAB_PSW <<<<<<${NC}"
 
 sudo kubectl port-forward -n gitlab svc/gitlab-webservice-default 80:8181 &

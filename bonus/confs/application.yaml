@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: http://gitlab.local/root/sfraslin.git
+    repoURL: http://gitlab-webservice-default.gitlab.svc.cluster.local:8181/root/liperez.git
     targetRevision: HEAD
     path: .
   destination:
