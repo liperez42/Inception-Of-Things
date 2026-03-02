@@ -1,3 +1,9 @@
+#!/bin/bash
+
+RED='\033[31m'
+GREEN='\033[32m'
+NC='\033[0m' # No Color
+
 #Install ArgoCD in the namespaces (server-side)
 kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 echo "Argocd installation succeeded !"
