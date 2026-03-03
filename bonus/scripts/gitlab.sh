@@ -47,6 +47,7 @@ echo -e "${BLUE}Adding files...${NC}"
 TEMP_DIR=$(mktemp -d)
 cp $PWD/bonus/gitlab_files/deployment.yaml $TEMP_DIR/
 cp $PWD/bonus/gitlab_files/service.yaml $TEMP_DIR/
+cp $PWD/bonus/gitlab_files/.gitlab-ci.yaml $TEMP_DIR/
 
 cd $TEMP_DIR
 git init

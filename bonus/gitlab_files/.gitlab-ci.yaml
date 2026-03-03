@@ -1,0 +1,10 @@
+# continous deployment for gitlab: check to see if the container's image exists
+
+check-image:
+  stage: test
+  image: docker:24
+  services:
+    - docker:dind
+  script:
+    - IMAGE=$(grep "image:" deployment.yaml | awk '{print $2}')
+    - docker pull $IMAGE && echo "OK" || exit 1

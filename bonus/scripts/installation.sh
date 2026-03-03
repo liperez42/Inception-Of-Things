@@ -54,7 +54,7 @@ sudo apt clean
 
 echo -e "${GREEN}------------ Cleaning Done ------------${NC}"
 
-# exit
+exit
 
 # ----- Instalations -----
 
