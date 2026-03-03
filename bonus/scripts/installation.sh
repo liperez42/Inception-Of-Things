@@ -2,13 +2,14 @@
 
 RED='\033[31m'
 GREEN='\033[32m'
+BLUE='\033[34m'
 NC='\033[0m' # No Color
 
 # ----- Clean Start -----
-echo "------------ Cleaning previous installations ------------"
+echo -e "${GREEN}------------ Cleaning previous installations ------------${NC}"
 
 # Delete ArgoCD
-echo -e "Deleting ArgoCD..."
+echo -e "${BLUE}Deleting ArgoCD...${NC}"
 if kubectl get ns argocd &> /dev/null; then
   sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 fi
@@ -17,27 +18,27 @@ if k3d cluster list | grep -q "IOT-cluster"; then
 fi
 
 # Uninstall gitlab
-echo -e "Uninstall gitlab..."
+echo -e "${BLUE}Uninstall gitlab...${NC}"
 if helm list -n gitlab &> /dev/null; then
   helm uninstall gitlab --namespace gitlab
 fi
 
 # Delete Kubernetes namespaces
-echo -e "Deleting Kubernetes namespaces..."
+echo -e "${BLUE}Deleting Kubernetes namespaces...${NC}"
 sudo kubectl delete namespace argocd dev gitlab --ignore-not-found
 
 # Uninstall Helm
-echo -e "Uninstall Helm..."
+echo -e "${BLUE}Uninstall Helm...${NC}"
 sudo apt-get remove --purge helm -y
 sudo rm -f /usr/share/keyrings/helm.gpg
 sudo rm -f /etc/apt/sources.list.d/helm-stable-debian.list
 
 # Uninstall K3D
-echo -e "Uninstall K3D..."
+echo -e "${BLUE}Uninstall K3D...${NC}"
 sudo curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash -s --uninstall
 
 # Removing Docker
-echo -e "Deleting Docker..."
+echo -e "${BLUE}Deleting Docker...${NC}"
 if command -v helm &> /dev/null; then
   sudo systemctl stop docker
   sudo dpkg --configure -a
@@ -47,7 +48,7 @@ if command -v helm &> /dev/null; then
 fi
 
 # Apt clean
-echo -e "Cleaning apt..."
+echo -e "${BLUE}Cleaning apt...${NC}"
 sudo apt autoremove -y
 sudo apt clean
 
@@ -65,22 +66,21 @@ curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o 
 chmod a+r /etc/apt/keyrings/docker.gpg
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 sudo apt update
-echo "apres update"
 sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-echo "Docker installation succeeded !"
+echo -e "${BLUE}Docker installation succeeded !${NC}"
 
 #Start Docker
-echo "Starting docker..."
+echo -e "${BLUE}Starting docker...${NC}"
 sudo systemctl enable docker
 sudo systemctl start docker
 sudo systemctl status docker --no-pager
 
 #Install k3d
-echo "Installing k3d..."
+echo -e "${BLUE}Installing k3d...${NC}"
 curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
 
 #Install  kubectl
-echo "Installing kubectl..."
+echo -e "${BLUE}Installing kubectl...${NC}"
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
 sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 
@@ -89,12 +89,12 @@ kubectl config set-cluster k3d-IOT-cluster --insecure-skip-tls-verify=true --ser
 # ----- Create and config K3D cluster -----
 
 #Create cluster
-echo "Creating cluster..."
+echo -e "${BLUE}Creating cluster...${NC}"
 k3d cluster create IOT-cluster --port "8888:8888@loadbalancer" --wait
 sleep 10
 
 #Create namespaces
-echo "Creating namespaces..."
+echo -e "${BLUE}Creating namespaces...${NC}"
 kubectl create namespace argocd
 kubectl create namespace dev
 kubectl create namespace gitlab 
@@ -118,12 +118,13 @@ helm repo update
 helm search repo gitlab 
 
 #Install Gitlab instance
-helm install gitlab gitlab/gitlab -f confs/gitlab-values.yaml --namespace gitlab
+helm install gitlab gitlab/gitlab -f $PWD/bonus/confs/gitlab-values.yaml --namespace gitlab
 
 kubectl wait --for=condition=Ready pods -n gitlab --all --timeout=300s 
 
 #Get gitlab password
 GITLAB_PSW=$(kubectl -n gitlab get secret gitlab-gitlab-initial-root-password -o jsonpath="{.data.password}" | base64 -d)
 echo -e "${GREEN}>>>>>> Gitlab root password: $GITLAB_PSW <<<<<<${NC}"
+echo "export GITLAB_PSW='$GITLAB_PSW'" > /tmp/gitlab_vars.sh
 
 sudo kubectl port-forward -n gitlab svc/gitlab-webservice-default 80:8181 &
