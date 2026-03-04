@@ -18,7 +18,7 @@ echo -e "${BLUE}GitLab is ready${NC}"
 # Creating a token with kubectl
 echo -e "${BLUE}Creating gitlab root token${NC}"
 ROOT_TOKEN=$(kubectl exec -n gitlab deploy/gitlab-toolbox -- gitlab-rails runner \
-  "token = User.find_by_username('root').personal_access_tokens.create(scopes: ['api', 'read_repository'], name: 'argocd-token', expires_at: 365.days.from_now); puts token.token")
+  "token = User.find_by_username('root').personal_access_tokens.create(scopes: ['api', 'read_repository', 'write_repository'], name: 'argocd-token', expires_at: 365.days.from_now); puts token.token")
 
 if [ -z "$ROOT_TOKEN" ]; then
   echo -e "${RED}Error : GitLab token cannot be created${NC}"
@@ -26,6 +26,12 @@ if [ -z "$ROOT_TOKEN" ]; then
 fi
 
 echo -e "${GREEN}>>>>>> GitLab root token: $ROOT_TOKEN <<<<<<${NC}"
+
+#Configure clone URL
+echo -e "${BLUE}Configuring GitLab internal clone URL...${NC}"
+kubectl exec -n gitlab deploy/gitlab-toolbox -- gitlab-rails runner \
+  "ApplicationSetting.current.update!(custom_http_clone_url_root: 'http://gitlab-webservice-default.gitlab.svc.cluster.local:8181')"
+echo -e "${GREEN}Clone URL configured !${NC}"
 
 # Creating user sfraslin
 echo -e "${BLUE}Creating user sfraslin...${NC}"
@@ -60,6 +66,13 @@ cd -
 rm -rf $TEMP_DIR
 echo -e "${GREEN}Files pushed !${NC}"
 
+#set CI access Token
+curl -s --request POST "http://localhost/api/v4/projects/root%2Fsfraslin/variables" \
+  --header "PRIVATE-TOKEN: $ROOT_TOKEN" \
+  --data "key=CI_ACCESS_TOKEN&value=$ROOT_TOKEN&protected=false&masked=true"
+echo -e "${GREEN}CI_ACCESS_TOKEN variable set !${NC}"
+
+#install gitlab-runner
 RUNNER_TOKEN=$(curl -s --request POST "http://localhost/api/v4/user/runners" \
   --header "PRIVATE-TOKEN: $ROOT_TOKEN" \
   --data "runner_type=instance_type&description=k3d-runner" \
@@ -68,7 +81,9 @@ RUNNER_TOKEN=$(curl -s --request POST "http://localhost/api/v4/user/runners" \
 helm install --namespace gitlab gitlab-runner \
   --set gitlabUrl='http://gitlab-webservice-default.gitlab.svc.cluster.local:8181' \
   --set runnerToken=$RUNNER_TOKEN \
-  --set rbac.create='true' \
+  --set rbac.create=true \
+  --set runners.cloneUrl='http://gitlab-webservice-default.gitlab.svc.cluster.local:8181' \
+  --set runners.job.registry='http://gitlab-webservice-default.gitlab.svc.cluster.local:8181' \
   gitlab/gitlab-runner
 
 sudo ./bonus/scripts/argocd.sh
