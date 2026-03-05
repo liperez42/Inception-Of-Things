@@ -96,12 +96,12 @@ echo "Waiting for the pods to be ready..."
 sudo kubectl wait --for=condition=Ready pods -n argocd --all --timeout=300s
 
 #Apply application
-sudo kubectl apply -f ../confs/application.yaml -n argocd
+sudo kubectl apply -f $PWD/p3/confs/application.yaml -n argocd
+
+#Get admin password
+ARGO_PSW=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+echo -e "${GREEN}>>>>>> ArgoCD admin password: $ARGO_PSW <<<<<<${NC}"
 
 #Connect to argocd via port 8080
 echo "Starting the server connection..."
-sudo kubectl port-forward svc/argocd-server -n argocd 8080:443
-
-
-#Get admin password
-#kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+sudo kubectl port-forward svc/argocd-server -n argocd 8080:443 &
