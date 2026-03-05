@@ -6,39 +6,7 @@ NC='\033[0m' # No Color
 
 # ----- Clean Start -----
 echo "------------ Cleaning previous installations ------------"
-
-#Delete ArgoCD
-echo -e "Deleting ArgoCD..."
-sudo kubectl delete -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-sudo k3d cluster delete IOT-cluster
-
-# Delete Kube config file
-echo -e "Deleting Kube config files..."
-sudo rm -rf ~/.kube/config
-sudo rm -rf /etc/kubernetes
-
-# Delete Kubernetes namespaces
-echo -e "Deleting Kubernetes namespaces..."
-sudo kubectl delete namespace argocd dev --ignore-not-found
-
-# Uninstall K3D
-echo -e "Uninstall K3D..."
-sudo curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash -s --uninstall
-
-# Removing Docker
-echo -e "Deleting Docker..."
-sudo systemctl stop docker
-sudo dpkg --configure -a
-sudo apt remove --purge -y docker-ce docker-ce-cli containerd.io
-sudo rm -rf /var/lib/docker
-sudo rm -rf /var/lib/containerd
-
-# Apt clean
-echo -e "Cleaning apt..."
-sudo apt autoremove -y
-sudo apt clean
-
-echo -e "${GREEN}------------ Cleaning Done ------------${NC}"
+sudo ./p3/scripts/clean.sh
 
 # ----- Instalations -----
 
